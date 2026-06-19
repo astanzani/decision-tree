@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Árvore de Decisões</title>
+<style>
+  :root {
+    --bg: #f8fafc; --card: #ffffff; --fg: #0f172a; --muted: #64748b;
+    --border: #e2e8f0; --primary: #2563eb; --primary-fg: #ffffff;
+    --primary-soft: #eff6ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0b1220; --card:#111827; --fg:#f1f5f9; --muted:#94a3b8;
+      --border:#1f2937; --primary:#60a5fa; --primary-fg:#0b1220; --primary-soft:#172033; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--fg); line-height: 1.5; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; display:flex; flex-direction:column; align-items:center; }
+  h1 { font-size: 20px; margin: 0 0 4px; align-self:flex-start; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; align-self:flex-start; }
+  .step { width:100%; max-width:480px; background: var(--card); border:1px solid var(--border); border-radius: 16px;
+    padding: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); animation: pop .25s ease-out; }
+  .step.faded { opacity:.8; }
+  .step.active { border-color: color-mix(in srgb, var(--primary) 50%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 8%, transparent); }
+  .qrow { display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; }
+  .num { width:26px; height:26px; flex:none; border-radius:999px; background: var(--primary-soft);
+    color: var(--primary); font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center; }
+  .q { font-size: 16px; font-weight: 500; margin: 2px 0 0; white-space: pre-wrap; word-break: break-word; line-height:1.4; }
+  .answers { display:flex; flex-direction:column; gap:8px; }
+  .a { display:flex; gap:8px; align-items:flex-start; text-align:left; width:100%;
+    border:1px solid var(--border); background: var(--card); color: var(--fg);
+    border-radius: 12px; padding: 10px 14px; font-size: 14px; cursor: pointer; transition: all .15s; font: inherit; line-height:1.4; }
+  .a:hover { transform: translateY(-1px); border-color: var(--primary); color: var(--primary);
+    background: var(--primary-soft); box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--primary) 40%, transparent); }
+  .a.chosen { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+  .a.chosen:hover { background: var(--primary); color: var(--primary-fg); }
+  .a.dim { opacity:.5; }
+  .a .dot { width:14px; height:14px; flex:none; margin-top:3px; border-radius:999px; border:1.5px solid currentColor; opacity:.4; }
+  .a.chosen .dot { background: currentColor; opacity:1; border-color: currentColor; position:relative; }
+  .a.chosen .dot::after { content:""; position:absolute; left:3px; top:1px; width:4px; height:7px;
+    border:solid var(--primary); border-width:0 2px 2px 0; transform: rotate(45deg); }
+  .a .lbl { flex:1; white-space:pre-wrap; word-break:break-word; }
+  .cont { align-self:center; display:inline-flex; align-items:center; gap:4px;
+    border:1px solid var(--primary); background: var(--primary); color: var(--primary-fg);
+    border-radius: 999px; padding: 9px 20px; font-size: 14px; font-weight:500; cursor:pointer; transition: all .15s; font: inherit; }
+  .cont:hover { transform: translateY(-1px); box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--primary) 50%, transparent); }
+  .hint { margin-top:10px; text-align:center; font-size:11px; color:var(--muted); }
+
+  /* Tree arrows */
+  .edge { display:flex; flex-direction:column; align-items:center; max-width:320px; animation: pop .25s ease-out; }
+  .edge .line { width:2px; height:20px; background: color-mix(in srgb, var(--primary) 50%, transparent); }
+  .edge .pill { max-width:100%; border:1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    background: var(--primary-soft); color: var(--primary); border-radius: 14px;
+    padding: 4px 12px; font-size: 12px; font-weight: 500; text-align:center;
+    white-space: pre-wrap; word-break: break-word; line-height:1.35; }
+  .edge .arrow { width:14px; height:20px; color: color-mix(in srgb, var(--primary) 60%, transparent); }
+
+  .end { margin-top: 0; padding: 8px 18px; border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--primary); font-size: 14px; font-weight: 500; animation: pop .25s ease-out; }
+  .restart { margin-top: 28px; background:none; border:1px solid var(--border);
+    color: var(--muted); border-radius:8px; padding: 6px 12px; font: inherit; font-size: 13px; cursor:pointer; }
+  .restart:hover { color: var(--fg); }
+  .empty { text-align:center; color:var(--muted); padding: 40px; border:1px dashed var(--border); border-radius:12px; }
+  @keyframes pop { from { opacity:0; transform: translateY(-6px) scale(.98);} to { opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Árvore de Decisões</h1>
+  <p class="sub">Clique em uma resposta para continuar.</p>
+  <div id="root" style="display:flex;flex-direction:column;align-items:center;width:100%"></div>
+</div>
+<script>
+  const STATE = {"nodes":{"00tero1m":{"id":"00tero1m","question":"Bruna conhece Jonatas pela internet e inicia um relacionamento. Desde o início, percebe que há um certo nível de ciúmes desmedido por parte dele, porém, ele diz que a ama e que é apenas um sinal de cuidado. Eles moram com a mãe dele e ela está grávida. Como Bruna deve reagir?","x":0,"y":0,"answers":[{"id":"gv650erz","label":"Minimizar os primeiros episódios de ciúmes excessivos. Afinal, ela está grávida e precisa confiar no atual companheiro, já que ele sempre está por perto para ajudá-la e sustenta financeiramente a casa.","nextNodeId":"veq0wl22"},{"id":"i6waab5w","label":"Conversar com familiares e construir uma rede de apoio desde o início. Porém, correr o risco de haver uma desavença entre eles e criar um problema maior, já que a sua família é muito protetora e não gosta muito dele.","nextNodeId":null}]},"veq0wl22":{"id":"veq0wl22","question":"Bruna relata a primeira agressão durante a gravidez.","x":0,"y":0,"answers":[{"id":"yj162jzh","label":"Registrar boletim de ocorrência","nextNodeId":"71glb17b"},{"id":"28g83e3q","label":"Não registrar porque acredita que ele vai mudar e depende financeiramente dele. Se ele a deixar, não teria apoio suficiente dos seus familiares e poderia perder a guarda do filho.","nextNodeId":"9gpn2kja"}],"transitionNextId":"71glb17b"},"71glb17b":{"id":"71glb17b","question":"Após ser agredida, Bruna procura atendimento médico e registra BO. Ela relata agressões físicas, humilhações, ameaças e controle por parte do companheiro. Apesar de acreditar em mudanças, a violência persiste e se intensifica com o uso de álcool e drogas por Jonatas. O que fazer?","x":0,"y":0,"answers":[{"id":"ouz2rjp0","label":"Procurar assistência judicial (NPJ) e pedir medidas protetivas imediatamente.","nextNodeId":"nmzgxoon"},{"id":"h15ymk68","label":"Aguardar novos acontecimentos e concentrar esforços apenas na preservação das provas.","nextNodeId":"lvt6526g"}]},"nmzgxoon":{"id":"nmzgxoon","question":"As medidas protetivas são deferidas. O agressor fica proibido de manter contato com Bruna. Ela está desempregada, mora sozinha, possui poucas condições financeiras e não conta com uma rede de apoio estruturada. Ela relata medo de retaliações e apresenta sinais de sofrimento psicológico.","x":0,"y":0,"answers":[{"id":"3cpelupk","label":"Acionar a rede de proteção (CRAS, CREAS, atendimento psicológico e serviços municipais).","nextNodeId":"n5d12zvm"},{"id":"ejy124qx","label":"Concentrar toda a atuação apenas no processo judicial","nextNodeId":null}]},"n5d12zvm":{"id":"n5d12zvm","question":"Bruna inicia acompanhamento psicológico e passa a receber orientação da assistência social.  Durante um atendimento, relata que não vê o filho há semanas e teme que Jonatas esteja influenciando a criança contra ela. Os técnicos perguntam qual deve ser a prioridade da atuação jurídica.","x":0,"y":0,"answers":[{"id":"orieye15","label":"Buscar imediatamente a retomada da convivência materna.","nextNodeId":null},{"id":"1ymtjfhu","label":"Solicitar primeiro avaliação psicossocial da situação familiar.","nextNodeId":null}]},"9gpn2kja":{"id":"9gpn2kja","question":"Bruna decide não formalizar denúncia. Ela acredita que o nascimento do filho poderá mudar o comportamento dele. Nos meses seguintes, o relacionamento continua marcado por episódios de violência psicológica. Jonatas destrói documentos do bebê e faz ameaças quando está sob efeito de álcool e drogas.","x":0,"y":0,"answers":[{"id":"mf4hmk95","label":"Buscar apoio da mãe e de familiares próximos.","nextNodeId":null},{"id":"cy3e3pm9","label":"Permanecer isolada, tentando resolver os conflitos dentro do relacionamento.","nextNodeId":null}]},"lvt6526g":{"id":"lvt6526g","question":"Após se recusar a dar dinheiro para drogas, Bruna é perseguida por Jonatas com um pedaço de madeira. Bruna foge e aciona a polícia para resgatar o filho que permaneceu na residência do agressor. Com apoio policial, a criança é localizada e ambos passam a noite na casa de vizinhos.","x":0,"y":0,"answers":[{"id":"0ygs1at1","label":"Bruna procura assistência jurídica, mas escolhe viajar para Pernambuco, permanecer junto à sua rede familiar e registrar todos os fatos ocorridos.","nextNodeId":"u05aqkux"},{"id":"oiexlhku","label":"Bruna procura assistência jurídica, mas decide permanecer na cidade e buscar imediatamente medidas judiciais.","nextNodeId":null}]},"u05aqkux":{"id":"u05aqkux","question":"Bruna está protegida junto à mãe, mas distante dos órgãos que já acompanhavam a situação em Ribeirão Preto. Ela possui apoio emocional, porém teme perder contato com informações sobre processos envolvendo o filho.","x":0,"y":0,"answers":[{"id":"f5s2vexm","label":"Buscar atendimento na rede de assistência social local e manter acompanhamento jurídico à distância.","nextNodeId":null},{"id":"e1g6ldxm","label":"Romper totalmente os contatos institucionais e tentar reconstruir a vida sem apoio jurídico.","nextNodeId":null}]}},"rootId":"00tero1m"};
+  const root = document.getElementById("root");
+  let path = STATE.rootId ? [{ nodeId: STATE.rootId }] : [];
+
+  function makeEdge(label) {
+    const e = document.createElement("div"); e.className = "edge";
+    const l1 = document.createElement("div"); l1.className = "line"; e.appendChild(l1);
+    if (label) {
+      const p = document.createElement("div"); p.className = "pill"; p.textContent = label; e.appendChild(p);
+    }
+    const arrow = document.createElementNS("http://www.w3.org/2000/svg","svg");
+    arrow.setAttribute("class","arrow"); arrow.setAttribute("viewBox","0 0 14 20");
+    arrow.innerHTML = '<line x1="7" y1="0" x2="7" y2="14" stroke="currentColor" stroke-width="2"/><polyline points="1,12 7,19 13,12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+    e.appendChild(arrow);
+    return e;
+  }
+
+  function render() {
+    root.innerHTML = "";
+    if (!path.length) { root.innerHTML = '<div class="empty">Nenhum bloco definido.</div>'; return; }
+
+    path.forEach((step, idx) => {
+      const node = STATE.nodes[step.nodeId];
+      if (!node) return;
+      const isLast = idx === path.length - 1;
+      const answered = !!step.chosenAnswerId;
+
+      if (idx > 0) root.appendChild(makeEdge(path[idx - 1].chosenLabel || ""));
+
+      const step$ = document.createElement("div");
+      step$.className = "step " + (isLast ? "active" : "faded");
+
+      const qrow = document.createElement("div"); qrow.className = "qrow";
+      const num = document.createElement("div"); num.className = "num"; num.textContent = String(idx + 1);
+      const q = document.createElement("p"); q.className = "q"; q.textContent = node.question;
+      qrow.appendChild(num); qrow.appendChild(q);
+      step$.appendChild(qrow);
+
+      const ans = document.createElement("div"); ans.className = "answers";
+      if (!node.answers.length) {
+        if (node.transitionNextId && STATE.nodes[node.transitionNextId]) {
+          const b = document.createElement("button");
+          b.className = "cont" + (answered ? " chosen" : "");
+          b.innerHTML = 'Continuar <span style="margin-left:4px">→</span>';
+          b.onclick = () => {
+            path = path.slice(0, idx + 1);
+            path[idx] = Object.assign({}, path[idx], { chosenAnswerId: "__t__", chosenLabel: "" });
+            path.push({ nodeId: node.transitionNextId });
+            render();
+          };
+          ans.appendChild(b);
+        } else {
+          const em = document.createElement("span");
+          em.style.color = "var(--muted)"; em.style.fontStyle = "italic"; em.style.fontSize = "14px";
+          em.textContent = "— bloco final —"; ans.appendChild(em);
+        }
+      }
+      node.answers.forEach((a) => {
+        const b = document.createElement("button");
+        const chosen = step.chosenAnswerId === a.id;
+        b.className = "a" + (chosen ? " chosen" : answered ? " dim" : "");
+        const dot = document.createElement("span"); dot.className = "dot";
+        const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.textContent = a.label;
+        b.appendChild(dot); b.appendChild(lbl);
+        b.onclick = () => {
+          path = path.slice(0, idx + 1);
+          path[idx] = Object.assign({}, path[idx], { chosenAnswerId: a.id, chosenLabel: a.label });
+          if (a.nextNodeId && STATE.nodes[a.nextNodeId]) path.push({ nodeId: a.nextNodeId });
+          render();
+        };
+        ans.appendChild(b);
+      });
+      step$.appendChild(ans);
+      if (answered && !isLast && node.answers.length > 0) {
+        const hint = document.createElement("div"); hint.className = "hint";
+        hint.textContent = "Clique em outra resposta para alterar o fluxo";
+        step$.appendChild(hint);
+      }
+      root.appendChild(step$);
+
+      if (answered && isLast) {
+        let terminal = false;
+        if (step.chosenAnswerId === "__t__") {
+          terminal = !node.transitionNextId || !STATE.nodes[node.transitionNextId];
+        } else {
+          const chosen = node.answers.find((a) => a.id === step.chosenAnswerId);
+          terminal = !chosen || !chosen.nextNodeId || !STATE.nodes[chosen.nextNodeId];
+        }
+        if (terminal) {
+          if (step.chosenLabel) root.appendChild(makeEdge(step.chosenLabel));
+          const end = document.createElement("div"); end.className = "end";
+          end.textContent = "✓ Fim do caminho"; root.appendChild(end);
+        }
+      }
+    });
+
+    if (path.length > 1) {
+      const r = document.createElement("button");
+      r.className = "restart"; r.textContent = "↺ Recomeçar";
+      r.onclick = () => { path = [{ nodeId: STATE.rootId }]; render(); };
+      root.appendChild(r);
+    }
+  }
+  render();
+</script>
+</body>
+</html>
